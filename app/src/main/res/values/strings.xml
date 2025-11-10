@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">SaveEats</string>
+    <string name="available_nearby">Доступны по близости</string>
+    <string name="distance_km">Расстояние: %.1f км</string>
+    <string name="boxes_left">Осталось коробок: %d</string>
+    <string name="price_with_discount">%s ₽ (скидка %d%%)</string>
+    <string name="almost_gone">Успей забрать</string>
+</resources>

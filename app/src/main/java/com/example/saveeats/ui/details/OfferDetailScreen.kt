@@ -323,7 +323,7 @@ fun OferDetailScreen(offerId: Int, onBackClick: () -> Unit, viewModel: OfferDeta
 
                 // Кнопка "Забронировать"
                 Button(
-                    onClick = onBookClick,  // ← Используем ViewModel
+                    onClick = onBookClick,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),

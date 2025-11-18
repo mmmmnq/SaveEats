@@ -1,53 +1,49 @@
 package com.example.saveeats.ui.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SearchBar
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ModifierLocalBeyondBoundsLayout
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.saveeats.data.models.Offer
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.ImeAction
 import com.example.saveeats.R
-import com.example.saveeats.ui.theme.*
+import com.example.saveeats.data.models.Offer
+
 @Composable
-fun HomeScreen(viewModel: HomeViewModel = viewModel(),onOfferClick: (Int) -> Unit = {}) {
+fun HomeScreen(
+    viewModel: HomeViewModel = viewModel(),
+    onOfferClick: (Int) -> Unit = {}
+) {
     val offers by viewModel.offers.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-
     val keyboardController = LocalSoftwareKeyboardController.current
-
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF1E1E1E))
-            .padding(20.dp)
+            .padding(16.dp)
     ) {
         Text(
             text = stringResource(R.string.available_nearby),
@@ -58,68 +54,253 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel(),onOfferClick: (Int) -> Uni
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        //строка поиска
         OutlinedTextField(
             value = searchQuery,
-            onValueChange = {viewModel.updateSearchQuery(it)},
-            modifier = Modifier.fillMaxWidth().height(56.dp),
+            onValueChange = { viewModel.updateSearchQuery(it) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
             placeholder = {
                 Text("Найдите нужное...", color = Color.Gray)
             },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search",
+                    tint = Color.Gray
+                )
+            },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { viewModel.updateSearchQuery("") }) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Clear",
+                            tint = Color.Gray
+                        )
+                    }
+                }
+            },
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = Color(0xFF2A2A2A),
+                unfocusedContainerColor = Color(0xFF2A2A2A),
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White,
+                cursorColor = Color(0xFFE57373),
+                focusedIndicatorColor = Color(0xFFE57373),
+                unfocusedIndicatorColor = Color.Gray
+            ),
+            shape = RoundedCornerShape(12.dp),
             singleLine = true,
             keyboardOptions = KeyboardOptions(
                 imeAction = ImeAction.Search
             ),
             keyboardActions = KeyboardActions(
                 onSearch = {
-
-                    defaultKeyboardAction(ImeAction.Search)
+                    keyboardController?.hide()
                 }
             )
+        )
 
-            )
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Spacer(modifier = Modifier.height(12.dp))
+
+
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             items(
                 items = offers,
                 key = { offer -> offer.id }
             ) { offer ->
-                OfferCard(offer = offer,onClick = {onOfferClick(offer.id)})
+                ModernOfferCard(
+                    offer = offer,
+                    onClick = { onOfferClick(offer.id) }
+                )
             }
         }
+
     }
 }
 
 @Composable
-fun OfferCard(offer: Offer, onClick: (Int) -> Unit) {
+fun ModernOfferCard(
+    offer: Offer,
+    onClick: () -> Unit
+) {
     Card(
-        onClick = { onClick(offer.id) },
+        onClick = onClick,
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF2A2A2A)
         ),
-        shape = CardDefaults.shape,
+        shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(offer.name, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Text(offer.category, color = Color.LightGray, fontSize = 14.sp)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(stringResource(R.string.distance_km, offer.distance), color = Color.Gray, fontSize = 13.sp)
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(stringResource(R.string.boxes_left, offer.boxesLeft), color = Color.White, fontSize = 14.sp)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.price_with_discount, offer.newPrice, offer.discount),
-                color = Color(0xFFE57373),
-                fontSize = 16.sp
-            )
-            if (offer.isAlmostGone) {
-                Spacer(modifier = Modifier.height(8.dp))
+        Column {
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .background(Color(0xFF3A3A3A))
+            ) {
+                // картинка тут
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_launcher_foreground),
+                    contentDescription = null,
+                    tint = Color(0xFF5A5A5A),
+                    modifier = Modifier
+                        .size(80.dp)
+                        .align(Alignment.Center)
+                )
+
+                //успей забрать
+                if (offer.isAlmostGone) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(12.dp)
+                            .background(
+                                color = Color(0xFFFF5252),
+                                shape = RoundedCornerShape(20.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.almost_gone),
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+
+            // инфа под картинкой
+            Column(modifier = Modifier.padding(16.dp)) {
+                // Название и категория
                 Text(
-                    text = stringResource(R.string.almost_gone),
-                    color = Color(0xFFFF5252),
+                    text = offer.name,
+                    color = Color.White,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
+
+                Text(
+                    text = offer.category,
+                    color = Color.LightGray,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Строка с расстоянием и временем
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Расстояние
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = Color.Gray,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = stringResource(R.string.distance_km, offer.distance),
+                            color = Color.Gray,
+                            fontSize = 13.sp
+                        )
+                    }
+
+                    // Время (можно добавить в Offer позже)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.AccessTime,
+                            contentDescription = null,
+                            tint = Color.Gray,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "20:00 - 20:30",
+                            color = Color.Gray,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Коробки осталось
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_launcher_foreground),
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(R.string.boxes_left, offer.boxesLeft),
+                        color = Color.White,
+                        fontSize = 14.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Цена и скидка
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    // Цены
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = "${offer.newPrice} ₽",
+                            color = Color(0xFFE57373),
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "900 ₽",
+                            color = Color.Gray,
+                            fontSize = 14.sp,
+                            style = androidx.compose.ui.text.TextStyle(
+                                textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough
+                            )
+                        )
+                    }
+
+                    // Процент скидки
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                color = Color(0xFFE57373).copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "-${offer.discount}%",
+                            color = Color(0xFFE57373),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
+            // ==============================================
         }
     }
 }
+

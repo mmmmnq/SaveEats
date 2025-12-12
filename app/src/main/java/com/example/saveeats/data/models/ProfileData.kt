@@ -1,12 +1,11 @@
 package com.example.saveeats.data.models
 
-data class ProfileData(
-    val name: String,
+
+data class User(
+    val id: Int,
     val email: String,
-    val savedBoxes: Int,
-    val moneySaved: Int,
-    val co2Saved: Int,
-    val favoriteCount: Int,
-    val ordersCount: Int,
-    val address: String
+    val full_name:String,
+    val avatar_url:String?,
+    val role: String
+
 )

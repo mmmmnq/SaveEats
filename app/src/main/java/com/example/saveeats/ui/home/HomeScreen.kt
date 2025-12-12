@@ -18,6 +18,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusModifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -30,6 +32,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.saveeats.R
 import com.example.saveeats.data.models.Offer
 
+
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = viewModel(),
@@ -37,96 +40,48 @@ fun HomeScreen(
 ) {
     val offers by viewModel.offers.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-    val keyboardController = LocalSoftwareKeyboardController.current
+    val address by viewModel.userAdress.collectAsState()
+
+
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF1E1E1E))
-            .padding(16.dp)
+
     ) {
-        Text(
-            text = stringResource(R.string.available_nearby),
-            color = Color.White,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold
+
+
+        HomeHeader(
+            searchQuery = searchQuery,
+            onSearchQueryChange = { viewModel.updateSearchQuery(it) },
+            onClearClick = { viewModel.updateSearchQuery("") },
+            currentAddress = address
         )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        //строка поиска
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { viewModel.updateSearchQuery(it) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            placeholder = {
-                Text("Найдите нужное...", color = Color.Gray)
-            },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search",
-                    tint = Color.Gray
-                )
-            },
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { viewModel.updateSearchQuery("") }) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Clear",
-                            tint = Color.Gray
-                        )
-                    }
-                }
-            },
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color(0xFF2A2A2A),
-                unfocusedContainerColor = Color(0xFF2A2A2A),
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                cursorColor = Color(0xFFE57373),
-                focusedIndicatorColor = Color(0xFFE57373),
-                unfocusedIndicatorColor = Color.Gray
-            ),
-            shape = RoundedCornerShape(12.dp),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(
-                imeAction = ImeAction.Search
-            ),
-            keyboardActions = KeyboardActions(
-                onSearch = {
-                    keyboardController?.hide()
-                }
-            )
-        )
-
-
-        Spacer(modifier = Modifier.height(12.dp))
 
 
         LazyColumn(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(
                 items = offers,
                 key = { offer -> offer.id }
             ) { offer ->
-                ModernOfferCard(
+                OfferCard(
                     offer = offer,
                     onClick = { onOfferClick(offer.id) }
                 )
             }
         }
-
     }
 }
 
 @Composable
-fun ModernOfferCard(
+fun OfferCard(
     offer: Offer,
     onClick: () -> Unit
 ) {
@@ -146,7 +101,6 @@ fun ModernOfferCard(
                     .height(180.dp)
                     .background(Color(0xFF3A3A3A))
             ) {
-                // картинка тут
                 Icon(
                     painter = painterResource(id = R.drawable.ic_launcher_foreground),
                     contentDescription = null,
@@ -302,5 +256,118 @@ fun ModernOfferCard(
             // ==============================================
         }
     }
-}
 
+}
+@Composable
+fun HomeHeader(
+    searchQuery: String,
+    currentAddress:String,
+    onSearchQueryChange: (String) -> Unit,
+    onClearClick: () -> Unit
+) {
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    Card(
+        shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        modifier = Modifier
+            .fillMaxWidth()
+            .wrapContentHeight()
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF8B4545),
+                            Color(0xFF6B3535)
+                        )
+                    )
+                )
+        ) {
+
+            Column(
+                modifier = Modifier
+                    .statusBarsPadding()
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.available_nearby),
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(1f)
+                )
+                {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = "",
+                        tint = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.padding(horizontal = 10.dp)
+                    )
+                    Text(
+                        text = currentAddress,
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+
+
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = onSearchQueryChange,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    placeholder = {
+                        Text("Найдите нужное...", color = Color.White.copy(alpha = 0.7f))
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = Color.White.copy(alpha = 0.7f)
+                        )
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = onClearClick) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Clear",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                    },
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Black.copy(alpha = 0.2f),
+                        unfocusedContainerColor = Color.Black.copy(alpha = 0.2f),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = Color.White,
+                        focusedIndicatorColor = Color.White,
+                        unfocusedIndicatorColor = Color.Transparent
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = { keyboardController?.hide() }
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+    }
+}

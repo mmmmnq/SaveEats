@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.saveeats.data.models.Offer
 
-import com.example.saveeats.data.repository.restCardRepository
+import com.example.saveeats.data.repository.RestCardRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 
 class OfferDetailViewModel : ViewModel() {
 
-    private val repository = restCardRepository()
+    private val repository = RestCardRepository()
     private val cartRepository = CartRepository
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()

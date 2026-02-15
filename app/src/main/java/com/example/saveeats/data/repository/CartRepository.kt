@@ -23,7 +23,7 @@ object CartRepository {
                 discountedPrice = offer.newPrice,
                 discount = offer.discount,
                 quantity = quantity,
-                distance = offer.distance.toDouble(),
+                distance = offer.business.distance_km,
                 pickupTime = offer.time
 
             )

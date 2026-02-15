@@ -1,7 +1,5 @@
-package com.example.saveeats.ui.profile
+package com.example.saveeats.ui.profile.mainpage
 
-import android.R
-import androidx.collection.intIntMapOf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
@@ -24,24 +22,38 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-
+import android.util.Log
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.example.saveeats.ui.profile.adressPage.addressPageViewModel
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ModifierLocalBeyondBoundsLayout
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.saveeats.data.models.ProfileData
-
+import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import coil.decode.SvgDecoder
+import com.example.saveeats.data.models.User
 @Composable
-fun ProfileScreen(viewModel: ProfileViewModel = viewModel()) {
+fun ProfileScreen(navController: NavController,
+                  viewModel: ProfileViewModel = viewModel(),
+                  onLogout: (() -> Unit)? = null) {
 
-    val profileData by viewModel.profileData.collectAsState()
+    val user by viewModel.user.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
@@ -70,25 +82,27 @@ fun ProfileScreen(viewModel: ProfileViewModel = viewModel()) {
     }
 
 
-    profileData?.let { data ->
+    user?.let { currentUser ->
         ProfileContent(
-        data = data,
-        onFavoritesClick = {viewModel::onFavoritesClick},
-        onOrdersClick = {viewModel::onOrdersClick},
-        onAddressClick = {viewModel::onAddressClick},
-        onAchievementsClick = {viewModel::onAchievementsClick},
-        onSettingsClick = {viewModel::onSettingsClick}
-    )
+        user = currentUser,
+            onFavoritesClick = { navController.navigate("favorites") },
+            onOrdersClick = { navController.navigate("orders") },
+            onAddressClick = { navController.navigate("address") },
+            onAchievementsClick = { navController.navigate("achievements") },
+            onSettingsClick = { navController.navigate("settings") },
+            onLogout = { onLogout?.invoke()}
+                )
     }
 }
 @Composable
 fun ProfileContent(
-    data: ProfileData,
+    user: User,
     onFavoritesClick: () -> Unit,
     onOrdersClick: () -> Unit,
     onAddressClick: () -> Unit,
     onAchievementsClick: () -> Unit,
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    onLogout: () -> Unit = {}
 ){
     Column(
         modifier = Modifier
@@ -96,33 +110,47 @@ fun ProfileContent(
             .background(Color(0xFF1E1E1E)).verticalScroll(rememberScrollState()))
     {
         ProfileHeader(
-            name = data.name,
-            email = data.email
+            name = user.full_name,
+            email = user.email,
+            avatarUrl = user.avatar_url
 
         )
         StatisticSection(
-            savedBoxes = data.savedBoxes,
-            moneySaved = data.moneySaved,
-            co2Saved = data.co2Saved
+            savedBoxes = 12,      // TODO
+            moneySaved = 3500,    //
+            co2Saved = 84
         )
         Spacer(modifier = Modifier.height(16.dp))
         ProfileOptions(
-            data = data,
+            user = user,
             onFavoritesClick = onFavoritesClick,
             onOrdersClick = onOrdersClick,
             onAddressClick = onAddressClick,
             onAchievementsClick = onAchievementsClick,
             onSettingsClick = onSettingsClick
         )
+        Button(
+            onClick = onLogout,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFE57373)
+            )
+        ) {
+            Text("Выйти из аккаунта")
+        }
 
         Spacer(modifier = Modifier.height(80.dp))
     }
 
 }
 @Composable
-fun ProfileHeader(name: String,
-                  email: String) {
-
+fun ProfileHeader(
+    name: String,
+    email: String,
+    avatarUrl: String? = null
+) {
     Card(
         shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
@@ -159,12 +187,40 @@ fun ProfileHeader(name: String,
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Avatar",
-                        tint = Color.White,
-                        modifier = Modifier.size(40.dp)
-                    )
+                    if (!avatarUrl.isNullOrBlank()) {
+                        // Логируем URL для отладки
+                        Log.d("ProfileHeader", "Загрузка аватара: $avatarUrl")
+
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(avatarUrl)
+                                .decoderFactory(SvgDecoder.Factory())  // ← Для SVG
+                                .crossfade(true)
+                                .listener(
+                                    onError = { _, result ->
+                                        Log.e("ProfileHeader", "❌ Ошибка загрузки: ${result.throwable.message}")
+                                    },
+                                    onSuccess = { _, _ ->
+                                        Log.d("ProfileHeader", "✅ Аватар загружен")
+                                    }
+                                )
+                                .build(),
+                            contentDescription = "Avatar",
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop,
+                            placeholder = rememberVectorPainter(image = Icons.Default.Person),
+                            error = rememberVectorPainter(image = Icons.Default.Person)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Avatar",
+                            tint = Color.White,
+                            modifier = Modifier.size(40.dp)
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(12.dp))
@@ -261,7 +317,7 @@ fun StatisticItem(icon: ImageVector,value:String, label:String)
             text = label,
             color = Color.Gray,
             fontSize = 12.sp,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            textAlign = TextAlign.Center,
             lineHeight = 14.sp
         )
     }
@@ -269,7 +325,7 @@ fun StatisticItem(icon: ImageVector,value:String, label:String)
 
 @Composable
 fun ProfileOptions(
-    data: ProfileData,
+    user: User,
     onFavoritesClick: () -> Unit,
     onOrdersClick: () -> Unit,
     onAddressClick: () -> Unit,
@@ -285,26 +341,26 @@ fun ProfileOptions(
         ProfileCard(
             icon = Icons.Default.Eco,
             title = "Ваш вклад в экологию",
-            subtitle = "Вы помогли предотвратить выброс ${data.co2Saved} кг CO₂ в атмосферу",
+            subtitle = "Вы помогли предотвратить выброс 84 кг CO₂ в атмосферу",
             iconTint = Color(0xFF4CAF50)
         )
         //избранные места
         ProfileOptionItem(
             icon = Icons.Default.Favorite,
             title = "Любимые места",
-            subtitle = "${data.favoriteCount} мест",
+            subtitle = "$12 мест",
             onClick = onFavoritesClick
         )
         ProfileOptionItem(
             icon = Icons.Default.History,
             title = "Вы уже заказывали",
-            subtitle = "${data.ordersCount} заказов",
+            subtitle = "5 заказов",
             onClick = onOrdersClick
         )
         ProfileOptionItem(
             icon = Icons.Default.Person,
             title = "Адрес доставки",
-            subtitle = data.address,
+            subtitle = "Иваново Шубиных 27",
             onClick = onAddressClick
         )
         ProfileOptionItem(
@@ -325,7 +381,6 @@ fun ProfileOptions(
 @Composable
 fun ProfileCard(icon: ImageVector,
                 title:String,
-
                 subtitle: String,
                 iconTint: Color = Color(0xFFE57373)
 )

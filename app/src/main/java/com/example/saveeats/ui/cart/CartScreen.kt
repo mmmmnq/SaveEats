@@ -338,24 +338,21 @@ fun CartItemCard(
                                 color = Color.Gray,
                                 fontSize = 12.sp
                             )
-                        }
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
                             Icon(
                                 imageVector = Icons.Default.AccessTime,
                                 contentDescription = null,
                                 tint = Color.Gray,
                                 modifier = Modifier.size(14.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
                             Text(
                                 text = item.pickupTime,
                                 color = Color.Gray,
                                 fontSize = 12.sp
                             )
                         }
+
+
                     }
                 }
             }
@@ -549,9 +546,7 @@ fun ConfirmButton(
                 .padding(horizontal = 16.dp)
                 .padding(
                     top = 12.dp,
-                    bottom = WindowInsets.navigationBars
-                        .asPaddingValues()
-                        .calculateBottomPadding() + 12.dp
+                    bottom = 8.dp
                 )
         ) {
             Button(

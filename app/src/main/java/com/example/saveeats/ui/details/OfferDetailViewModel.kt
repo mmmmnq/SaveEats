@@ -30,8 +30,7 @@ class OfferDetailViewModel : ViewModel() {
             _error.value = null
 
             try {
-                val allOffers = repository.getRestCards()
-                val foundOffer = allOffers.find { it.id == offerId }
+                val foundOffer = repository.getOffer(offerId)
 
                 if (foundOffer != null) {
                     _offer.value = foundOffer

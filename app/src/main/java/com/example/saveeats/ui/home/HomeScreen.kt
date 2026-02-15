@@ -1,26 +1,29 @@
 package com.example.saveeats.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.focusModifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -29,29 +32,27 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.saveeats.R
 import com.example.saveeats.data.models.Offer
-
 
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = viewModel(),
     onOfferClick: (Int) -> Unit = {}
 ) {
-    val offers by viewModel.offers.collectAsState()
+    // 👇 Подписываемся на СГРУППИРОВАННЫЙ список (Map<Int, List<Offer>>)
+    val groupedOffers by viewModel.groupedOffers.collectAsState()
+
     val searchQuery by viewModel.searchQuery.collectAsState()
     val address by viewModel.userAdress.collectAsState()
-
-
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF1E1E1E))
-
     ) {
-
-
         HomeHeader(
             searchQuery = searchQuery,
             onSearchQueryChange = { viewModel.updateSearchQuery(it) },
@@ -59,209 +60,34 @@ fun HomeScreen(
             currentAddress = address
         )
 
-
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
                 .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp), // Отступ снизу для навигации
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(
-                items = offers,
-                key = { offer -> offer.id }
-            ) { offer ->
-                OfferCard(
-                    offer = offer,
-                    onClick = { onOfferClick(offer.id) }
-                )
+            // 👇 ИТЕРИРУЕМСЯ ПО РЕСТОРАНАМ (ГРУППАМ), А НЕ ПО ОФФЕРАМ
+            items(groupedOffers.keys.toList()) { businessId ->
+                // Получаем список офферов для этого ресторана
+                val offersInThisRestaurant = groupedOffers[businessId] ?: emptyList()
+
+                if (offersInThisRestaurant.isNotEmpty()) {
+                    // Рисуем одну большую карточку ресторана со списком еды внутри
+                    RestaurantGroupCard(
+                        offers = offersInThisRestaurant,
+                        onOfferClick = onOfferClick
+                    )
+                }
             }
         }
     }
 }
 
-@Composable
-fun OfferCard(
-    offer: Offer,
-    onClick: () -> Unit
-) {
-    Card(
-        onClick = onClick,
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF2A2A2A)
-        ),
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column {
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp)
-                    .background(Color(0xFF3A3A3A))
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_launcher_foreground),
-                    contentDescription = null,
-                    tint = Color(0xFF5A5A5A),
-                    modifier = Modifier
-                        .size(80.dp)
-                        .align(Alignment.Center)
-                )
-
-                //успей забрать
-                if (offer.isAlmostGone) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(12.dp)
-                            .background(
-                                color = Color(0xFFFF5252),
-                                shape = RoundedCornerShape(20.dp)
-                            )
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.almost_gone),
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-
-
-            // инфа под картинкой
-            Column(modifier = Modifier.padding(16.dp)) {
-                // Название и категория
-                Text(
-                    text = offer.name,
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    text = offer.category,
-                    color = Color.LightGray,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Строка с расстоянием и временем
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Расстояние
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.LocationOn,
-                            contentDescription = null,
-                            tint = Color.Gray,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = stringResource(R.string.distance_km, offer.distance),
-                            color = Color.Gray,
-                            fontSize = 13.sp
-                        )
-                    }
-
-                    // Время (можно добавить в Offer позже)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.AccessTime,
-                            contentDescription = null,
-                            tint = Color.Gray,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "20:00 - 20:30",
-                            color = Color.Gray,
-                            fontSize = 13.sp
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Коробки осталось
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_launcher_foreground),
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = stringResource(R.string.boxes_left, offer.boxesLeft),
-                        color = Color.White,
-                        fontSize = 14.sp
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Цена и скидка
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    // Цены
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = "${offer.newPrice} ₽",
-                            color = Color(0xFFE57373),
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "900 ₽",
-                            color = Color.Gray,
-                            fontSize = 14.sp,
-                            style = androidx.compose.ui.text.TextStyle(
-                                textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough
-                            )
-                        )
-                    }
-
-                    // Процент скидки
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                color = Color(0xFFE57373).copy(alpha = 0.2f),
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "-${offer.discount}%",
-                            color = Color(0xFFE57373),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-            // ==============================================
-        }
-    }
-
-}
 @Composable
 fun HomeHeader(
     searchQuery: String,
-    currentAddress:String,
+    currentAddress: String,
     onSearchQueryChange: (String) -> Unit,
     onClearClick: () -> Unit
 ) {
@@ -286,7 +112,6 @@ fun HomeHeader(
                     )
                 )
         ) {
-
             Column(
                 modifier = Modifier
                     .statusBarsPadding()
@@ -297,17 +122,15 @@ fun HomeHeader(
                     color = Color.White,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
-
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(1f)
-                )
-                {
+                ) {
                     Icon(
                         imageVector = Icons.Default.LocationOn,
                         contentDescription = "",
                         tint = Color.White.copy(alpha = 0.7f),
-                        modifier = Modifier.padding(horizontal = 10.dp)
+                        modifier = Modifier.padding(end = 4.dp)
                     )
                     Text(
                         text = currentAddress,
@@ -316,9 +139,6 @@ fun HomeHeader(
                         fontWeight = FontWeight.Bold
                     )
                 }
-
-
-
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -365,8 +185,172 @@ fun HomeHeader(
                         onSearch = { keyboardController?.hide() }
                     )
                 )
-
                 Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+    }
+}
+
+// === НОВАЯ КАРТОЧКА: ГРУППА РЕСТОРАНА ===
+@Composable
+fun RestaurantGroupCard(
+    offers: List<Offer>, // Список офферов ЭТОГО ресторана
+    onOfferClick: (Int) -> Unit
+) {
+    // Берем информацию о бизнесе из первого оффера в списке
+    val business = offers.first().business
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+    ) {
+        Column {
+            // === 1. ШАПКА РЕСТОРАНА ===
+            Box(modifier = Modifier.height(140.dp).fillMaxWidth()) {
+                // Картинка ресторана
+                if (!business.cover_image_url.isNullOrBlank()) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(business.cover_image_url)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(Modifier.fillMaxSize().background(Color(0xFF3A3A3A)))
+                }
+
+                // Затемнение снизу для текста
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(80.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f))
+                            )
+                        )
+                )
+
+                // Название и Лого
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Круглый логотип
+                    if (!business.logo_url.isNullOrBlank()) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(business.logo_url)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color.Gray),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        // Заглушка для лого
+                        Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(Color.Gray))
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column {
+                        Text(
+                            text = business.name,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+                        // Форматируем рейтинг и дистанцию
+                        val ratingText = if (business.rating != null) "⭐ ${business.rating}" else "New"
+                        val distText = String.format("%.1f км", business.distance_km)
+
+                        Text(
+                            text = "$ratingText • $distText",
+                            color = Color.LightGray,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+
+            // === 2. СПИСОК ОФФЕРОВ ВНУТРИ ===
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    text = "Доступно сегодня:",
+                    color = Color.Gray,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                // Проходимся по всем офферам этого ресторана
+                offers.forEach { offer ->
+                    OfferRowItem(offer = offer, onClick = { onOfferClick(offer.id) })
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+        }
+    }
+}
+
+// === МАЛЕНЬКАЯ СТРОЧКА С ОФФЕРОМ ===
+@Composable
+fun OfferRowItem(
+    offer: Offer,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF3A3A3A), RoundedCornerShape(12.dp))
+            .clickable { onClick() } // Клик по строчке ведет к деталям
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = offer.name, // "Magic Bag"
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+            )
+            Text(
+                text = "${offer.boxesLeft} шт. осталось",
+                color = if (offer.boxesLeft < 3) Color(0xFFFF5252) else Color.Gray,
+                fontSize = 12.sp
+            )
+        }
+
+        // Цена
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = "${offer.newPrice} ₽",
+                color = Color(0xFFE57373),
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
+            // Старая цена (если есть)
+            if (offer.oldPrice > 0) {
+                Text(
+                    text = "${offer.oldPrice} ₽",
+                    color = Color.Gray,
+                    fontSize = 12.sp,
+                    style = androidx.compose.ui.text.TextStyle(
+                        textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough
+                    )
+                )
             }
         }
     }

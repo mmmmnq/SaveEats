@@ -1,7 +1,8 @@
 package com.example.saveeats.data.models
 
 
-data class User(
+data class User
+    (
     val id: Int,
     val email: String,
     val full_name:String,

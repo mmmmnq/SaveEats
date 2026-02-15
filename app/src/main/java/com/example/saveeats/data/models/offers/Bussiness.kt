@@ -1,5 +1,6 @@
 package com.example.saveeats.data.models.offers
 
+import com.google.gson.annotations.SerializedName
 import retrofit2.http.Query
 import retrofit2.http.GET
 
@@ -11,6 +12,9 @@ data class Business(
     val address: String,
     val latitude: Double,
     val longitude: Double,
+    val logo_url:String?,
+    @SerializedName("cover_image_url")
+    val cover_image_url: String?,
     val rating: Double?,
     val distance_km: Double,
 

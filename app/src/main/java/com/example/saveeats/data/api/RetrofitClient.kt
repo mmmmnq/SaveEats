@@ -8,9 +8,11 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 import com.example.saveeats.data.models.offers.BusinessService
+import com.example.saveeats.data.api.OfferService
+
 object RetrofitClient {
 
-    private const val BASE_URL = "http://192.168.0.196:8000/"
+    private const val BASE_URL = "http://192.168.0.193:8000/"
 
     private val tokenManager by lazy {
         TokenManager(SaveEatsApplication.instance)
@@ -42,5 +44,8 @@ object RetrofitClient {
     }
     val authService: AuthService by lazy {
         retrofit.create(AuthService::class.java)
+    }
+    val offerService: OfferService by lazy {
+        retrofit.create(OfferService::class.java)
     }
 }

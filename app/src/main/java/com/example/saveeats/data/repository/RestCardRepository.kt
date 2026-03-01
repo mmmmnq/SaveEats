@@ -87,6 +87,19 @@ class RestCardRepository {
         }
     }
 
+    suspend fun createOrder(offerId: Int, quantity: Int): Boolean {
+        return try {
+            val request = com.example.saveeats.data.models.CartRequest(offerid = offerId, quantity = quantity)
+            val response = RetrofitClient.offerService.createOrder(request)
+
+            response.id > 0
+            } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+
     // 👇 МОКОВЫЕ ДАННЫЕ (Оставь как есть) 👇
     // 👇 ИСПРАВЛЕННАЯ ФУНКЦИЯ MOCK DATA (БЕЗ imageUrl) 👇
     private fun getMockOffers(): List<Offer> {

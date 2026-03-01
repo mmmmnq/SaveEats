@@ -10,86 +10,130 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.saveeats.R
 import com.example.saveeats.data.models.Offer
+import com.example.saveeats.ui.map.MapFilterScreen
+import kotlinx.coroutines.flow.MutableStateFlow
 
 @Composable
+
 fun HomeScreen(
     viewModel: HomeViewModel = viewModel(),
     onOfferClick: (Int) -> Unit = {}
 ) {
-    // 👇 Подписываемся на СГРУППИРОВАННЫЙ список (Map<Int, List<Offer>>)
     val groupedOffers by viewModel.groupedOffers.collectAsState()
-
     val searchQuery by viewModel.searchQuery.collectAsState()
     val address by viewModel.userAdress.collectAsState()
+    val currentRadius by viewModel.currentRadiusFilter.collectAsState()
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF1E1E1E))
-    ) {
-        HomeHeader(
-            searchQuery = searchQuery,
-            onSearchQueryChange = { viewModel.updateSearchQuery(it) },
-            onClearClick = { viewModel.updateSearchQuery("") },
-            currentAddress = address
+    // 👇 НОВОЕ 1: Создаем переменную-состояние.
+    // false = показываем список еды, true = показываем карту.
+    // Благодаря 'remember', Compose запоминает это значение при перерисовке экрана.
+    var showMap by remember { mutableStateOf(false) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.loadData()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+
+    if (showMap) {
+        MapFilterScreen(
+            onClose = {
+                showMap = false
+            },
+            onApplySettings = { radiusKm, lat, lon ->
+                viewModel.applyRadiusAndGetAddress(context, radiusKm, lat, lon)
+                showMap = false
+            }
         )
+    } else {
 
-        LazyColumn(
+        Column(
             modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp), // Отступ снизу для навигации
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .fillMaxSize()
+                .background(Color(0xFF1E1E1E))
         ) {
-            // 👇 ИТЕРИРУЕМСЯ ПО РЕСТОРАНАМ (ГРУППАМ), А НЕ ПО ОФФЕРАМ
-            items(groupedOffers.keys.toList()) { businessId ->
-                // Получаем список офферов для этого ресторана
-                val offersInThisRestaurant = groupedOffers[businessId] ?: emptyList()
+            HomeHeader(
+                searchQuery = searchQuery,
+                onSearchQueryChange = { viewModel.updateSearchQuery(it) },
+                onClearClick = { viewModel.updateSearchQuery("") },
+                currentAddress = address,
+                currentRadius = currentRadius,
+                onAdressClick = { showMap = true }
+            )
 
-                if (offersInThisRestaurant.isNotEmpty()) {
-                    // Рисуем одну большую карточку ресторана со списком еды внутри
-                    RestaurantGroupCard(
-                        offers = offersInThisRestaurant,
-                        onOfferClick = onOfferClick
-                    )
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(groupedOffers.keys.toList()) { businessId ->
+                    val offersInThisRestaurant = groupedOffers[businessId] ?: emptyList()
+                    if (offersInThisRestaurant.isNotEmpty()) {
+                        RestaurantGroupCard(
+                            offers = offersInThisRestaurant,
+                            onOfferClick = onOfferClick
+                        )
+                    }
                 }
             }
         }
     }
 }
-
 @Composable
 fun HomeHeader(
     searchQuery: String,
     currentAddress: String,
     onSearchQueryChange: (String) -> Unit,
-    onClearClick: () -> Unit
+    onClearClick: () -> Unit,
+    onAdressClick: () -> Unit,
+    currentRadius: Int
+
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -125,6 +169,9 @@ fun HomeHeader(
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(1f)
+                        .clickable{onAdressClick()}
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = Icons.Default.LocationOn,
@@ -133,7 +180,7 @@ fun HomeHeader(
                         modifier = Modifier.padding(end = 4.dp)
                     )
                     Text(
-                        text = currentAddress,
+                        text = "$currentAddress • $currentRadius км",
                         color = Color.White,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
@@ -304,15 +351,19 @@ fun RestaurantGroupCard(
     }
 }
 
-// === МАЛЕНЬКАЯ СТРОЧКА С ОФФЕРОМ ===
+
 @Composable
 fun OfferRowItem(
     offer: Offer,
     onClick: () -> Unit
 ) {
+    val isSoldOut = offer.boxesLeft == 0
+    val cardAlpha = if(isSoldOut) 0.5f else 1f
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .alpha(cardAlpha)
             .background(Color(0xFF3A3A3A), RoundedCornerShape(12.dp))
             .clickable { onClick() } // Клик по строчке ведет к деталям
             .padding(12.dp),
@@ -326,12 +377,27 @@ fun OfferRowItem(
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp
             )
-            Text(
-                text = "${offer.boxesLeft} шт. осталось",
-                color = if (offer.boxesLeft < 3) Color(0xFFFF5252) else Color.Gray,
-                fontSize = 12.sp
-            )
-        }
+
+            if (isSoldOut) {
+                Text(
+                    text = "Закончилось",
+                    color = Color.Gray,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                }
+                else {
+                    Text(
+                        text = "${offer.boxesLeft} шт. осталось",
+                        color = if (offer.boxesLeft < 3) Color(0xFFFF5252) else Color.Gray,
+                        fontSize = 12.sp
+                    )
+
+                }
+            }
+
+
+
 
         // Цена
         Column(horizontalAlignment = Alignment.End) {

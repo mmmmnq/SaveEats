@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.saveeats"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -39,8 +39,10 @@ android {
     }
 }
 
-dependencies {
 
+
+dependencies {
+    implementation("com.yandex.android:maps.mobile:4.30.0-lite")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

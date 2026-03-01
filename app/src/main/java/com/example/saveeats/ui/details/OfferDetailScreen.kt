@@ -358,18 +358,24 @@ private fun OfferDetailContent(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Кнопка "Забронировать"
+
+            val isAvailable = offer.boxesLeft > 0
+
             Button(
                 onClick = onBookClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
+                enabled = isAvailable,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF8B4545)
+                    containerColor = Color(0xFF8B4545),
+                    disabledContainerColor = Color.DarkGray,
+                    disabledContentColor = Color.LightGray
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    text = "Забронировать Коробку",
+                    text = if (isAvailable) "Забронировать" else "Раскуплено",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )

@@ -1,5 +1,7 @@
 package com.example.saveeats.data.api
 
+import com.example.saveeats.data.models.CartRequest
+import com.example.saveeats.data.models.CartResponse
 import com.example.saveeats.data.models.offers.OfferCreate
 import com.example.saveeats.data.models.offers.OfferResponse
 import com.example.saveeats.data.models.offers.OfferUpdate
@@ -54,5 +56,10 @@ interface OfferService {
         @Path("offer_id") offerId: Int,
         @Body offer: OfferUpdate
     ): OfferResponse
+
+    @POST("api/orders")
+    suspend fun createOrder(
+        @Body request: CartRequest
+    ): CartResponse
 }
 

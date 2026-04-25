@@ -67,5 +67,13 @@ interface OfferService {
 
     @GET("api/orders")
     suspend fun getOrders(): List<com.example.saveeats.data.models.OrderResponse>
+
+    /**
+     * Завершить заказ (подтвердить получение)
+     */
+    @POST("api/orders/{order_id}/complete")
+    suspend fun completeOrder(
+        @Path("order_id") orderId: Int
+    ): com.example.saveeats.data.models.OrderResponse
 }
 

@@ -23,8 +23,19 @@ class ProfileRepository {
                 businessName = res.offer?.business?.name ?: "Ресторан",
                 businessLogoUrl = res.offer?.business?.logo_url,
                 offerName = res.offer?.title ?: "Сюрприз-бокс",
-                quantity = res.quantity
+                quantity = res.quantity,
+                pickupCode = res.pickupCode
             )
+        }
+    }
+
+    suspend fun completeOrder(orderId: Int): Boolean {
+        return try {
+            RetrofitClient.offerService.completeOrder(orderId)
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
         }
     }
 

@@ -64,6 +64,7 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("io.coil-kt:coil-svg:2.7.0")
     implementation("io.coil-kt:coil:2.7.0")
+    implementation("io.github.g0dkar:qrcode-kotlin:3.3.0")
     implementation(libs.androidx.animation.core)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.foundation)

@@ -15,6 +15,12 @@ class OrdersViewModel : ViewModel() {
     private val _orders = MutableStateFlow<List<Order>>(emptyList())
     val orders: StateFlow<List<Order>> = _orders.asStateFlow()
 
+    private val _activeOrders = MutableStateFlow<List<Order>>(emptyList())
+    val activeOrders: StateFlow<List<Order>> = _activeOrders.asStateFlow()
+
+    private val _historyOrders = MutableStateFlow<List<Order>>(emptyList())
+    val historyOrders: StateFlow<List<Order>> = _historyOrders.asStateFlow()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -30,13 +36,35 @@ class OrdersViewModel : ViewModel() {
             _isLoading.value = true
             _error.value = null
             try {
-                _orders.value = repository.getOrders()
+                val allOrders = repository.getOrders()
+                _orders.value = allOrders
+                
+                // Разделяем заказы на активные и историю
+                _activeOrders.value = allOrders.filter { 
+                    it.status.uppercase() == "RESERVED" || it.status.uppercase() == "CONFIRMED" 
+                }
+                _historyOrders.value = allOrders.filter { 
+                    it.status.uppercase() != "RESERVED" && it.status.uppercase() != "CONFIRMED" 
+                }
             } catch (e: Exception) {
                 _error.value = "Не удалось загрузить историю заказов"
                 e.printStackTrace()
             } finally {
                 _isLoading.value = false
             }
+        }
+    }
+
+    fun completeOrder(orderId: Int) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            val success = repository.completeOrder(orderId)
+            if (success) {
+                loadOrders() // Перезагружаем список после успешного завершения
+            } else {
+                _error.value = "Не удалось подтвердить получение заказа"
+            }
+            _isLoading.value = false
         }
     }
 }

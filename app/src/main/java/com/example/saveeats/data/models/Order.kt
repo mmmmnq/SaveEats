@@ -45,5 +45,6 @@ data class Order(
     val businessName: String,
     val businessLogoUrl: String?,
     val offerName: String,
-    val quantity: Int
+    val quantity: Int,
+    val pickupCode: String? = null
 )

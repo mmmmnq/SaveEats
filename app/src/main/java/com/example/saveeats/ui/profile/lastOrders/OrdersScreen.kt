@@ -30,25 +30,59 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.saveeats.data.models.Order
 
+import androidx.compose.runtime.*
+import androidx.compose.ui.graphics.asImageBitmap
+import io.github.g0dkar.qrcode.QRCode
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrdersScreen(
     onBackClick: () -> Unit,
     viewModel: OrdersViewModel = viewModel()
 ) {
-    val orders by viewModel.orders.collectAsState()
+    val activeOrders by viewModel.activeOrders.collectAsState()
+    val historyOrders by viewModel.historyOrders.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+
+    var orderToComplete by remember { mutableStateOf<Order?>(null) }
 
     // Обновляем список при каждом входе на экран
     androidx.compose.runtime.LaunchedEffect(Unit) {
         viewModel.loadOrders()
     }
 
+    if (orderToComplete != null) {
+        AlertDialog(
+            onDismissRequest = { orderToComplete = null },
+            title = { Text("Подтверждение получения") },
+            text = { Text("Вы действительно получили этот заказ?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        orderToComplete?.let { viewModel.completeOrder(it.id) }
+                        orderToComplete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF81C784))
+                ) {
+                    Text("Да, получил")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { orderToComplete = null }) {
+                    Text("Отмена", color = Color.Gray)
+                }
+            },
+            containerColor = Color(0xFF2A2A2A),
+            titleContentColor = Color.White,
+            textContentColor = Color.LightGray
+        )
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("История заказов", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = { Text("Мои заказы", color = Color.White, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = Color.White)
@@ -62,28 +96,195 @@ fun OrdersScreen(
         containerColor = Color(0xFF1E1E1E)
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-            if (isLoading) {
+            if (isLoading && activeOrders.isEmpty() && historyOrders.isEmpty()) {
                 CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center),
                     color = Color(0xFFE57373)
                 )
-            } else if (error != null) {
+            } else if (error != null && activeOrders.isEmpty() && historyOrders.isEmpty()) {
                 Text(
                     text = error ?: "",
                     color = Color.White,
                     modifier = Modifier.align(Alignment.Center)
                 )
-            } else if (orders.isEmpty()) {
+            } else if (activeOrders.isEmpty() && historyOrders.isEmpty()) {
                 EmptyOrdersView()
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(orders) { order ->
-                        OrderCard(order)
+                    if (activeOrders.isNotEmpty()) {
+                        item {
+                            Text(
+                                "Активные заказы",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
+                        items(activeOrders) { order ->
+                            ActiveOrderCard(
+                                order = order,
+                                onCompleteClick = { orderToComplete = order }
+                            )
+                        }
                     }
+
+                    if (historyOrders.isNotEmpty()) {
+                        item {
+                            Text(
+                                "История заказов",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                            )
+                        }
+                        items(historyOrders) { order ->
+                            OrderCard(order)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ActiveOrderCard(order: Order, onCompleteClick: () -> Unit) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Логотип бизнеса
+                Box(
+                    modifier = Modifier
+                        .size(50.dp)
+                        .background(Color(0xFF3A3A3A), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (order.businessLogoUrl != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(order.businessLogoUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(Icons.Default.Restaurant, contentDescription = null, tint = Color.Gray)
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = order.businessName,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                    Text(
+                        text = order.offerName,
+                        color = Color.LightGray,
+                        fontSize = 14.sp
+                    )
+                }
+
+                Surface(
+                    color = getStatusColor(order.status).copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = translateStatus(order.status),
+                        color = getStatusColor(order.status),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // QR Код
+            if (order.pickupCode != null) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    val qrCodeBitmap = remember(order.pickupCode) {
+                        try {
+                            // Генерация QR кода с помощью qrcode-kotlin
+                            // Используем render().nativeImage() для Android Bitmap
+                            QRCode(order.pickupCode).render().nativeImage() as android.graphics.Bitmap
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+
+                    if (qrCodeBitmap != null) {
+                        Box(
+                            modifier = Modifier
+                                .background(Color.White, RoundedCornerShape(12.dp))
+                                .padding(12.dp)
+                        ) {
+                            androidx.compose.foundation.Image(
+                                bitmap = qrCodeBitmap.asImageBitmap(),
+                                contentDescription = "QR Code",
+                                modifier = Modifier.size(180.dp)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = "Покажите этот код сотруднику",
+                            color = Color.Gray,
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            text = "Код: ${order.pickupCode}",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${order.totalPrice} ₽",
+                    color = Color(0xFFE57373),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
+                )
+                
+                Button(
+                    onClick = onCompleteClick,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF81C784)),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text("Я получил заказ", color = Color(0xFF1B5E20), fontWeight = FontWeight.Bold)
                 }
             }
         }

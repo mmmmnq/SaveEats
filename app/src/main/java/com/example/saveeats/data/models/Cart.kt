@@ -1,17 +1,20 @@
 package com.example.saveeats.data.models
 
-// Товар в корзине (на основе Offer, но с количеством и итоговой ценой)
+// Товар в корзине (с количеством и итоговой ценой)
 data class CartItem(
-    val offerId: Int,            // ID товара (из Offer.id)
-    val offerName: String,       // (из Offer.name)
-    val category: String,        // (из Offer.category)
-    val originalPrice: Int,      // (из Offer.oldPrice)
-    val discountedPrice: Int,    // (из Offer.newPrice)
-    val discount: Int,           // (из Offer.discount)
-    val quantity: Int = 1,       // количество (новое поле)
-    val distance: Double = 0.0,  // (из Offer.distance, можно сохранить как snapshot)
-    val pickupTime: String = ""
-     // (из Offer.time)
+    val offerId: Int,
+    val offerName: String,
+    val businessName: String,
+    val businessLat: Double,
+    val businessLon: Double,
+    val category: String,
+    val originalPrice: Int,
+    val discountedPrice: Int,
+    val discount: Int,
+    val quantity: Int = 1,
+    val distance: Double = 0.0,
+    val pickupTimeRange: String = "", // Диапазон времени (например "15:00 - 18:00")
+    val selectedPickupTime: String? = null // Конкретное время, выбранное пользователем
 )
 
 // Итоги корзины

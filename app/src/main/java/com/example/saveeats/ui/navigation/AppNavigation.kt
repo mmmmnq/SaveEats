@@ -23,7 +23,8 @@ import com.example.saveeats.ui.home.HomeScreen
 import com.example.saveeats.ui.profile.mainpage.ProfileScreen
 import com.example.saveeats.ui.details.OferDetailScreen
 import com.example.saveeats.ui.cart.CartScreen
-import com.example.saveeats.ui.profile.adressPage.AddressScreen
+import com.example.saveeats.ui.profile.lastOrders.OrdersScreen
+import com.example.saveeats.ui.profile.favoritePlaces.FavoritesScreen
 import com.example.saveeats.ui.auth.login.LoginScreen
 import com.example.saveeats.ui.auth.register.RegisterScreen
 
@@ -121,8 +122,21 @@ fun AppNavigation() {
                 )
             }
 
-            composable("address") {
-                AddressScreen()
+            composable("orders") {
+                OrdersScreen(
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+
+            composable("favorites") {
+                FavoritesScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onBusinessClick = { businessId ->
+                        // Пока нет экрана бизнеса, можно либо ничего не делать, 
+                        // либо переходить на главный экран с фильтром (если реализовано)
+                        Log.d("AppNavigation", "Переход к бизнесу $businessId")
+                    }
+                )
             }
 
             composable("detail/{offerId}") { backStackEntry ->

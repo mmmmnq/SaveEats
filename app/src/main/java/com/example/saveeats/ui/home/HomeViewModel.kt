@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.saveeats.data.models.Offer
 import com.example.saveeats.data.repository.ProfileRepository
 import com.example.saveeats.data.repository.RestCardRepository
+import com.example.saveeats.data.repository.CartRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,7 +36,11 @@ class HomeViewModel : ViewModel() {
         _currentRadiusFilter.value = radiusKm
         currentUserLat = userLat
         currentUserLon = userLon
-        updateFilteredOffers()
+        
+        // Обновляем дистанции в корзине
+        CartRepository.updateDistances(userLat, userLon)
+        
+        loadData()
     }
 
 
@@ -67,8 +72,16 @@ class HomeViewModel : ViewModel() {
 
      fun loadData() {
         viewModelScope.launch {
-
-            val rawOffers = offersRepository.getRestCards()
+            // Если у нас уже есть координаты пользователя, передадим их в репозиторий
+            val rawOffers = if (currentUserLat != null && currentUserLon != null) {
+                offersRepository.getRestCards(
+                    lat = currentUserLat!!,
+                    lon = currentUserLon!!,
+                    radiusKm = _currentRadiusFilter.value.toDouble()
+                )
+            } else {
+                offersRepository.getRestCards()
+            }
 
 
             _allOffers.value = rawOffers.sortedBy { it.boxesLeft == 0 }
@@ -76,7 +89,7 @@ class HomeViewModel : ViewModel() {
 
             try {
                 val profile = profileRepository.getProfile()
-                // Тут можно обновить адрес, если придет профиль
+
             } catch (e: Exception) {
                 _userAdress.value = "Адрес не найден"
             }
@@ -131,47 +144,51 @@ class HomeViewModel : ViewModel() {
     }
 
     private fun updateFilteredOffers() {
-        val currentQuery = _searchQuery.value.trim() // trim() убирает случайные пробелы по краям
+        val currentQuery = _searchQuery.value.trim()
         val currentRadius = _currentRadiusFilter.value
 
+        // 1. Сначала рассчитываем дистанцию для ВСЕХ офферов
+        val offersWithDistance = _allOffers.value.map { offer ->
+            var distanceInKm = offer.business.distance_km
+            
+            // Если дистанция от сервера 0.0 и у нас есть координаты, пробуем рассчитать локально
+            if (distanceInKm == 0.0 && currentUserLat != null && currentUserLon != null) {
+                val restLat = offer.business.latitude
+                val restLon = offer.business.longitude
 
-        val filteredList = _allOffers.value.filter { offer ->
+                if (restLat != 0.0 || restLon != 0.0) {
+                    val results = FloatArray(1)
+                    android.location.Location.distanceBetween(
+                        currentUserLat!!,
+                        currentUserLon!!,
+                        restLat, restLon,
+                        results
+                    )
+                    distanceInKm = (results[0] / 1000).toDouble()
+                }
+            }
 
+            // Создаем новый объект Business с обновленной дистанцией
+            val updatedBusiness = offer.business.copy(distance_km = distanceInKm)
+            // Создаем новый объект Offer с обновленным бизнесом
+            offer.copy(business = updatedBusiness)
+        }
+
+        // 2. Затем фильтруем уже обновленный список
+        val filteredList = offersWithDistance.filter { offer ->
             val matchesSearch = if (currentQuery.isBlank()) {
                 true
-
             } else {
                 offer.name.contains(currentQuery, ignoreCase = true) ||
                         offer.business.name.contains(currentQuery, ignoreCase = true)
             }
 
-            var matchesRadius = true
-            val distance = offer.business.distance_km ?: 0.0
+            val distance = offer.business.distance_km
+            val matchesRadius = distance <= currentRadius
 
-            if (currentUserLat != null && currentUserLon != null) {
-                val restLat = offer.business.latitude
-                val restLon = offer.business.longitude
-
-                if (restLat != null && restLon != null) {
-                    val results = FloatArray(1)
-                    android.location.Location.distanceBetween(
-                        currentUserLat!!,
-                        currentUserLon!!,
-                        restLat,restLon,
-                        results
-                    )
-                    val distanceInKm = results[0] / 1000
-                    matchesRadius = distanceInKm <= currentRadius
-
-
-
-                }
-
-            }
             matchesSearch && matchesRadius
         }
 
-        // Обновляем список, а StateFlow (groupedOffers) сам сгруппирует его для экрана
         _filteredOffers.value = filteredList
     }
 }

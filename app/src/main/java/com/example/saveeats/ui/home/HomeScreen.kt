@@ -61,9 +61,7 @@ fun HomeScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // 👇 НОВОЕ 1: Создаем переменную-состояние.
-    // false = показываем список еды, true = показываем карту.
-    // Благодаря 'remember', Compose запоминает это значение при перерисовке экрана.
+
     var showMap by remember { mutableStateOf(false) }
 
     DisposableEffect(lifecycleOwner) {
@@ -158,8 +156,7 @@ fun HomeHeader(
         ) {
             Column(
                 modifier = Modifier
-                    .statusBarsPadding()
-                    .padding(16.dp)
+                    .padding(top = 8.dp, start = 16.dp, end = 16.dp, bottom = 12.dp)
             ) {
                 Text(
                     text = stringResource(R.string.available_nearby),

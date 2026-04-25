@@ -19,6 +19,9 @@ interface OfferService {
      */
     @GET("api/offers")
     suspend fun getOffers(
+        @Query("lat") lat: Double? = null,
+        @Query("lon") lon: Double? = null,
+        @Query("radius_km") radiusKm: Double? = null,
         @Query("business_id") businessId: Int? = null,
         @Query("only_available") onlyAvailable: Boolean = true
     ): List<OfferResponse>
@@ -61,5 +64,8 @@ interface OfferService {
     suspend fun createOrder(
         @Body request: CartRequest
     ): CartResponse
+
+    @GET("api/orders")
+    suspend fun getOrders(): List<com.example.saveeats.data.models.OrderResponse>
 }
 

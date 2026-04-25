@@ -17,14 +17,18 @@ class RestCardRepository {
     suspend fun getRestCards(
         lat: Double = 56.9972,
         lon: Double = 40.9714,
+        radiusKm: Double = 10.0,
         businessId: Int? = null,
         onlyAvailable: Boolean = false
     ): List<Offer> {
         return try {
-            Log.d("RestRepo", "🚀 Запрос офферов: lat=$lat, lon=$lon")
+            Log.d("RestRepo", "🚀 Запрос офферов: lat=$lat, lon=$lon, radius=$radiusKm")
 
             // 1. Получаем офферы из API
             val offersResponse = offerService.getOffers(
+                lat = lat,
+                lon = lon,
+                radiusKm = radiusKm,
                 businessId = businessId,
                 onlyAvailable = onlyAvailable
             )
@@ -40,7 +44,7 @@ class RestCardRepository {
 
             // 2. Получаем ближайшие бизнесы (для данных, которых нет в оффере)
             val businesses = try {
-                businessService.getNearby(lat, lon)
+                businessService.getNearby(lat, lon, radiusKm)
             } catch (e: Exception) {
                 Log.e("RestRepo", "Ошибка загрузки бизнесов: ${e.message}")
                 emptyList<Business>()

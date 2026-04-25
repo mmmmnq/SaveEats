@@ -56,27 +56,28 @@ fun ProfileScreen(navController: NavController,
     val user by viewModel.user.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+    val orders by viewModel.orders.collectAsState()
+    val favorites by viewModel.favorites.collectAsState()
+    val stats by viewModel.stats.collectAsState(initial = ProfileStats(0, 0, 0))
 
-    if(isLoading)
+    if(isLoading && user == null)
     {
         Box(modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF1E1E1E)), contentAlignment = Alignment.Center)
         {
             CircularProgressIndicator(color = Color(0xFFE57373))
-
         }
         return
     }
 
-    if (error != null)
+    if (error != null && user == null)
     {
         Box(modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF1E1E1E)), contentAlignment = Alignment.Center)
         {
             Text(text = error ?: "Упс что-то пошло не так", color = Color.White)
-
         }
         return
     }
@@ -84,22 +85,26 @@ fun ProfileScreen(navController: NavController,
 
     user?.let { currentUser ->
         ProfileContent(
-        user = currentUser,
+            user = currentUser,
+            ordersCount = orders.size,
+            favoritesCount = favorites.size,
+            stats = stats,
             onFavoritesClick = { navController.navigate("favorites") },
             onOrdersClick = { navController.navigate("orders") },
-            onAddressClick = { navController.navigate("address") },
             onAchievementsClick = { navController.navigate("achievements") },
             onSettingsClick = { navController.navigate("settings") },
             onLogout = { onLogout?.invoke()}
-                )
+        )
     }
 }
 @Composable
 fun ProfileContent(
     user: User,
+    ordersCount: Int,
+    favoritesCount: Int,
+    stats: ProfileStats,
     onFavoritesClick: () -> Unit,
     onOrdersClick: () -> Unit,
-    onAddressClick: () -> Unit,
     onAchievementsClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onLogout: () -> Unit = {}
@@ -113,19 +118,20 @@ fun ProfileContent(
             name = user.full_name,
             email = user.email,
             avatarUrl = user.avatar_url
-
         )
         StatisticSection(
-            savedBoxes = 12,      // TODO
-            moneySaved = 3500,    //
-            co2Saved = 84
+            savedBoxes = stats.savedBoxes,
+            moneySaved = stats.moneySaved,
+            co2Saved = stats.co2Saved
         )
         Spacer(modifier = Modifier.height(16.dp))
         ProfileOptions(
             user = user,
+            ordersCount = ordersCount,
+            favoritesCount = favoritesCount,
+            co2Saved = stats.co2Saved,
             onFavoritesClick = onFavoritesClick,
             onOrdersClick = onOrdersClick,
-            onAddressClick = onAddressClick,
             onAchievementsClick = onAchievementsClick,
             onSettingsClick = onSettingsClick
         )
@@ -326,9 +332,11 @@ fun StatisticItem(icon: ImageVector,value:String, label:String)
 @Composable
 fun ProfileOptions(
     user: User,
+    ordersCount: Int,
+    favoritesCount: Int,
+    co2Saved: Int,
     onFavoritesClick: () -> Unit,
     onOrdersClick: () -> Unit,
-    onAddressClick: () -> Unit,
     onAchievementsClick: () -> Unit,
     onSettingsClick: () -> Unit,
 )
@@ -341,27 +349,21 @@ fun ProfileOptions(
         ProfileCard(
             icon = Icons.Default.Eco,
             title = "Ваш вклад в экологию",
-            subtitle = "Вы помогли предотвратить выброс 84 кг CO₂ в атмосферу",
+            subtitle = "Вы помогли предотвратить выброс $co2Saved кг CO₂ в атмосферу",
             iconTint = Color(0xFF4CAF50)
         )
         //избранные места
         ProfileOptionItem(
             icon = Icons.Default.Favorite,
             title = "Любимые места",
-            subtitle = "$12 мест",
+            subtitle = if (favoritesCount > 0) "$favoritesCount мест" else "Пока пусто",
             onClick = onFavoritesClick
         )
         ProfileOptionItem(
             icon = Icons.Default.History,
             title = "Вы уже заказывали",
-            subtitle = "5 заказов",
+            subtitle = if (ordersCount > 0) "$ordersCount заказов" else "Нет заказов",
             onClick = onOrdersClick
-        )
-        ProfileOptionItem(
-            icon = Icons.Default.Person,
-            title = "Адрес доставки",
-            subtitle = "Иваново Шубиных 27",
-            onClick = onAddressClick
         )
         ProfileOptionItem(
             icon = Icons.Default.EmojiEvents,

@@ -4,9 +4,9 @@ import com.example.saveeats.data.models.offers.Business // Импортируе�
 
 data class Offer(
     val id: Int,
-    val name: String,         // Название пакета (Magic Bag)
-    val category: String,     // Выпечка
-    val time: String,         // 20:00 - 21:00
+    val name: String,
+    val category: String,
+    val time: String,
     val boxesLeft: Int,
     val oldPrice: Int,
     val newPrice: Int,
@@ -14,6 +14,6 @@ data class Offer(
     val isAlmostGone: Boolean,
     val imageUrl: String?,
 
-    // 👇 ГЛАВНОЕ ИЗМЕНЕНИЕ: Вкладываем сюда объект Business
+
     val business: Business
 )

@@ -1,3 +1,5 @@
+package com.example.saveeats.data.repository
+
 import com.example.saveeats.data.models.CartItem
 import com.example.saveeats.data.models.CartSummary
 import com.example.saveeats.data.models.Offer
@@ -18,16 +20,38 @@ object CartRepository {
             val cartItem = CartItem(
                 offerId = offer.id,
                 offerName = offer.name,
+                businessName = offer.business.name,
+                businessLat = offer.business.latitude,
+                businessLon = offer.business.longitude,
                 category = offer.category,
                 originalPrice = offer.oldPrice,
                 discountedPrice = offer.newPrice,
                 discount = offer.discount,
                 quantity = quantity,
                 distance = offer.business.distance_km,
-                pickupTime = offer.time
+                pickupTimeRange = offer.time,
+                selectedPickupTime = null // Изначально не выбрано
 
             )
             _cartItems.value = _cartItems.value + cartItem
+        }
+    }
+
+    fun updatePickupTime(offerId: Int, time: String) {
+        _cartItems.value = _cartItems.value.map {
+            if (it.offerId == offerId) it.copy(selectedPickupTime = time) else it
+        }
+    }
+
+    fun updateDistances(userLat: Double, userLon: Double) {
+        _cartItems.value = _cartItems.value.map { item ->
+            val results = FloatArray(1)
+            android.location.Location.distanceBetween(
+                userLat, userLon,
+                item.businessLat, item.businessLon,
+                results
+            )
+            item.copy(distance = (results[0] / 1000).toDouble())
         }
     }
 

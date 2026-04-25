@@ -12,7 +12,7 @@ import com.example.saveeats.data.api.OfferService
 
 object RetrofitClient {
 
-    private const val BASE_URL = "http://192.168.0.193:8000/"
+    private const val BASE_URL = "http://192.168.0.192:8000/"
 
     private val tokenManager by lazy {
         TokenManager(SaveEatsApplication.instance)
@@ -27,7 +27,7 @@ object RetrofitClient {
 
     private val client = OkHttpClient.Builder()
         .addInterceptor(loggingInterceptor)
-        .addInterceptor(authInterceptor)  // ← Добавили AuthInterceptor
+        .addInterceptor(authInterceptor)
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
@@ -47,5 +47,8 @@ object RetrofitClient {
     }
     val offerService: OfferService by lazy {
         retrofit.create(OfferService::class.java)
+    }
+    val userService: UserService by lazy {
+        retrofit.create(UserService::class.java)
     }
 }

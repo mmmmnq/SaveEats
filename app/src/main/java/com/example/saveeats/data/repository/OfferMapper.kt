@@ -24,13 +24,12 @@ object OfferMapper {
             distance_km = 0.0
         )
 
-        // 2. ВРЕМЯ (Используем твой метод парсинга)
+
         val startTime = extractTimeFromISO(offerResponse.pickupStart) ?: "00:00"
         val endTime = extractTimeFromISO(offerResponse.pickupEnd) ?: "23:59"
         val timeString = "$startTime - $endTime"
 
-        // 3. ЦЕНА И СКИДКА (Исправление ошибки Double?)
-        // Если originalPrice == null, считаем его равным 0.0
+
         val safeOriginalPrice = offerResponse.originalPrice ?: 0.0
 
         val discount = if (safeOriginalPrice > 0) {
@@ -39,8 +38,7 @@ object OfferMapper {
             0
         }
 
-        // 4. КОЛИЧЕСТВО (Исправление ошибки Unresolved reference)
-        // В OfferResponse поле называется quantity
+
         val isAlmostGone = offerResponse.quantity <= 3
 
         // 5. КАРТИНКА (Логика приоритета)
@@ -53,13 +51,13 @@ object OfferMapper {
             name = offerResponse.title,
             category = "Еда",
             time = timeString,
-            boxesLeft = offerResponse.quantity, // 👈 Используем .quantity
-            oldPrice = safeOriginalPrice.toInt(), // 👈 Используем безопасную переменную
+            boxesLeft = offerResponse.quantity,
+            oldPrice = safeOriginalPrice.toInt(),
             newPrice = offerResponse.price.toInt(),
             discount = discount,
             isAlmostGone = isAlmostGone,
 
-            // 👇 Передаем вычисленную картинку (чтобы в UI работало фото оффера)
+
             imageUrl = finalImageUrl,
 
             // Передаем весь объект бизнеса
@@ -67,7 +65,7 @@ object OfferMapper {
         )
     }
 
-    // Твой старый добрый парсер времени (он лучше, чем SimpleDateFormat, для простых строк)
+
     private fun extractTimeFromISO(isoString: String): String? {
         return try {
             // Ищет паттерн "T20:30"

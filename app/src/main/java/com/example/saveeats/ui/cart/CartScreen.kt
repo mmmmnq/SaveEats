@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -34,6 +35,10 @@ import com.example.saveeats.data.models.CartSummary
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+
 @Composable
 fun CartScreen(
     onBackClick: () -> Unit,
@@ -42,153 +47,215 @@ fun CartScreen(
     val cartItems by viewModel.cartItems.collectAsState()
     val cartSummary by viewModel.cartSummary.collectAsState(initial = null)
     val isLoading by viewModel.isLoading.collectAsState()
+    val paymentState by viewModel.paymentState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    Scaffold(
-        topBar = {},
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF1E1E1E)),
-        containerColor = Color(0xFF1E1E1E),
-        bottomBar = {
-            // Кнопка всегда внизу
-            cartSummary?.let {
-                ConfirmButton(
-                    total = it.total,
-                    isLoading = isLoading,
-                    onClick = { viewModel.confirmOrder() }
-                )
-            }
+    LaunchedEffect(Unit) {
+        viewModel.uiEvent.collect { message ->
+            snackbarHostState.showSnackbar(message)
         }
-    ) { paddingValues ->
-        Column(
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             modifier = Modifier
                 .fillMaxSize()
-                .padding(
-                    start = paddingValues.calculateLeftPadding(LayoutDirection.Ltr),
-                    end = paddingValues.calculateRightPadding(LayoutDirection.Ltr),
-                    bottom = paddingValues.calculateBottomPadding(),
-                    top = 0.dp
-
+                .background(Color(0xFF1E1E1E)),
+            containerColor = Color(0xFF1E1E1E),
+            bottomBar = {
+                // Кнопка всегда внизу
+                cartSummary?.let {
+                    ConfirmButton(
+                        total = it.total,
+                        isLoading = isLoading,
+                        onClick = { viewModel.confirmOrder() }
+                    )
+                }
+            }
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(
+                        start = paddingValues.calculateLeftPadding(LayoutDirection.Ltr),
+                        end = paddingValues.calculateRightPadding(LayoutDirection.Ltr),
+                        bottom = paddingValues.calculateBottomPadding(),
+                        top = 0.dp
+                    )
+            ) {
+                // Верхний блок с градиентом
+                CartHeader(
+                    itemCount = cartItems.size,
+                    onBackClick = onBackClick
                 )
 
-
-        ) {
-            // Верхний блок с градиентом
-            CartHeader(
-                itemCount = cartItems.size,
-                onBackClick = onBackClick
-            )
-
-            if (cartItems.isEmpty()) {
-                // Пустая корзина
-                EmptyCartView()
-            } else {
-                // Весь контент в одной прокручиваемой колонке
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
-                        top = 16.dp,
-                        bottom = 16.dp
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Товары
-                    items(
-                        items = cartItems,
-                        key = { it.offerId }
-                    ) { item ->
-                        AnimatedCartItem(
-                            item = item,
-                            onRemove = { viewModel.removeItem(item.offerId) }
-                        )
-                    }
-
-                    // Итоговая информация
-                    item {
-                        cartSummary?.let {
-                            CartSummaryCard(it)
+                if (cartItems.isEmpty()) {
+                    // Пустая корзина
+                    EmptyCartView()
+                } else {
+                    // Весь контент в одной прокручиваемой колонке
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 16.dp,
+                            bottom = 16.dp
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Товары
+                        items(
+                            items = cartItems,
+                            key = { it.offerId }
+                        ) { item ->
+                            AnimatedCartItem(
+                                item = item,
+                                onRemove = { viewModel.removeItem(item.offerId) },
+                                onTimeSelected = { viewModel.updatePickupTime(item.offerId, it) }
+                            )
                         }
-                    }
 
-                    // Информация о получении
-                    item {
-                        PickupInfoCard()
+                        // Итоговая информация
+                        item {
+                            cartSummary?.let {
+                                CartSummaryCard(it)
+                            }
+                        }
+
+                        // Информация о получении
+                        item {
+                            PickupInfoCard(cartItems)
+                        }
                     }
                 }
             }
+        }
+
+        // === ОВЕРЛЕЙ ОПЛАТЫ ===
+        if (paymentState != PaymentState.IDLE) {
+            PaymentOverlay(
+                state = paymentState,
+                cartItems = cartItems,
+                onDismiss = { viewModel.dismissPayment() }
+            )
         }
     }
 }
 
-fun pluralizeBox(n: Int): String =
-    when {
-        n % 10 == 1 && n % 100 != 11 -> "$n коробка"
-        n % 10 in 2..4 && (n % 100 !in 12..14) -> "$n коробки"
-        else -> "$n коробок"
-    }
-
 @Composable
-fun CartHeader(
-    itemCount: Int,
-    onBackClick: () -> Unit
+fun PaymentOverlay(
+    state: PaymentState,
+    cartItems: List<CartItem>,
+    onDismiss: () -> Unit
 ) {
-    val countText = pluralizeBox(itemCount)
-    Card(
-        shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        modifier = Modifier.fillMaxWidth().height(100.dp)
-    )
-    {
-        Box(
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.85f))
+            .clickable(enabled = state == PaymentState.ERROR || state == PaymentState.SUCCESS) { onDismiss() },
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)),
+            shape = RoundedCornerShape(24.dp),
             modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF8B4545),
-                            Color(0xFF6B3535)
-                        )
-                    )
-                )
+                .fillMaxWidth(0.85f)
+                .wrapContentHeight()
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                IconButton(
-                    onClick = onBackClick,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(
-                            color = Color.Black.copy(alpha = 0.3f),
-                            shape = CircleShape
+                // Иконка/Анимация
+                when (state) {
+                    PaymentState.PROCESSING -> {
+                        CircularProgressIndicator(color = Color(0xFFE57373))
+                    }
+                    PaymentState.BANK_RESPONSE -> {
+                        Icon(
+                            Icons.Default.AccountBalance,
+                            null,
+                            tint = Color(0xFFE5B02E),
+                            modifier = Modifier.size(64.dp)
                         )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Назад",
-                        tint = Color.White
-                    )
+                    }
+                    PaymentState.SUCCESS -> {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            null,
+                            tint = Color(0xFF81C784),
+                            modifier = Modifier.size(64.dp)
+                        )
+                    }
+                    PaymentState.ERROR -> {
+                        Icon(
+                            Icons.Default.Error,
+                            null,
+                            tint = Color(0xFFE57373),
+                            modifier = Modifier.size(64.dp)
+                        )
+                    }
+                    else -> {}
                 }
 
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                Column {
+                // Текст заголовка
+                val title = when (state) {
+                    PaymentState.PROCESSING -> "Ожидаем ответа от банка..."
+                    PaymentState.BANK_RESPONSE -> "Ответ получен!"
+                    PaymentState.SUCCESS -> "Заказ подтвержден"
+                    PaymentState.ERROR -> "Ошибка оплаты"
+                    else -> ""
+                }
+
+                Text(
+                    text = title,
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+
+                if (state == PaymentState.SUCCESS) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Показываем время для каждого товара
+                    cartItems.forEach { item ->
+                        Text(
+                            text = "Ждем вас в ${item.businessName} к ${item.selectedPickupTime}",
+                            color = Color.LightGray,
+                            fontSize = 14.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4545))
+                    ) {
+                        Text("Отлично!")
+                    }
+                }
+                
+                if (state == PaymentState.ERROR) {
+                    Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "Ваши Коробки",
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        countText,
-                        color = Color.White.copy(alpha = 0.8f),
+                        text = "Что-то пошло не так. Попробуйте еще раз.",
+                        color = Color.Gray,
                         fontSize = 14.sp
                     )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4545))
+                    ) {
+                        Text("Закрыть")
+                    }
                 }
             }
         }
@@ -198,7 +265,8 @@ fun CartHeader(
 @Composable
 fun AnimatedCartItem(
     item: CartItem,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    onTimeSelected: (String) -> Unit
 ) {
     var visible by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
@@ -215,48 +283,17 @@ fun AnimatedCartItem(
                     delay(300)
                     onRemove()
                 }
-            }
+            },
+            onTimeSelected = onTimeSelected
         )
-    }
-}
-
-@Composable
-fun EmptyCartView() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.ShoppingCart,
-                contentDescription = null,
-                tint = Color.Gray,
-                modifier = Modifier.size(80.dp)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Корзина пуста",
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Добавьте коробки из главного экрана",
-                color = Color.Gray,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
     }
 }
 
 @Composable
 fun CartItemCard(
     item: CartItem,
-    onRemoveClick: () -> Unit
+    onRemoveClick: () -> Unit,
+    onTimeSelected: (String) -> Unit
 ) {
     Card(
         colors = CardDefaults.cardColors(
@@ -303,63 +340,86 @@ fun CartItemCard(
                         color = Color.White,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = item.businessName,
+                        color = Color(0xFFE57373),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    Text(
-                        text = item.category,
-                        color = Color.LightGray,
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Строка с иконками - используем Column вместо Row
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.LocationOn,
-                                contentDescription = null,
-                                tint = Color.Gray,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "%.1f км".format(item.distance),
-                                color = Color.Gray,
-                                fontSize = 12.sp
-                            )
-                            Icon(
-                                imageVector = Icons.Default.AccessTime,
-                                contentDescription = null,
-                                tint = Color.Gray,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(14.dp))
-                            Text(
-                                text = item.pickupTime,
-                                color = Color.Gray,
-                                fontSize = 12.sp
-                            )
-                        }
-
-
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = Color.Gray,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "%.1f км".format(item.distance),
+                            color = Color.Gray,
+                            fontSize = 12.sp
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Icon(
+                            imageVector = Icons.Default.AccessTime,
+                            contentDescription = null,
+                            tint = Color.Gray,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = item.pickupTimeRange,
+                            color = Color.Gray,
+                            fontSize = 12.sp
+                        )
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Цена и кнопка удаления в одной строке
+            // Выбор времени
+            Text(
+                text = "Когда заберете?",
+                color = Color.White,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            val timeSlots = remember(item.pickupTimeRange) { generateTimeSlots(item.pickupTimeRange) }
+            
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(timeSlots) { time ->
+                    val isSelected = item.selectedPickupTime == time
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { onTimeSelected(time) },
+                        label = { Text(time) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = Color(0xFF3A3A3A),
+                            selectedContainerColor = Color(0xFF8B4545),
+                            labelColor = Color.LightGray,
+                            selectedLabelColor = Color.White
+                        ),
+                        border = null
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Цена и кнопка удаления
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -403,6 +463,37 @@ fun CartItemCard(
                 }
             }
         }
+    }
+}
+
+fun generateTimeSlots(range: String): List<String> {
+    try {
+        val parts = range.split("-").map { it.trim() }
+        if (parts.size != 2) return listOf(range)
+        
+        val startStr = parts[0]
+        val endStr = parts[1]
+        
+        val startH = startStr.split(":")[0].toInt()
+        val startM = startStr.split(":")[1].toInt()
+        val endH = endStr.split(":")[0].toInt()
+        val endM = endStr.split(":")[1].toInt()
+        
+        val slots = mutableListOf<String>()
+        var currentH = startH
+        var currentM = startM
+        
+        while (currentH < endH || (currentH == endH && currentM <= endM)) {
+            slots.add("%02d:%02d".format(currentH, currentM))
+            currentM += 30
+            if (currentM >= 60) {
+                currentH += 1
+                currentM = 0
+            }
+        }
+        return slots
+    } catch (e: Exception) {
+        return listOf(range)
     }
 }
 
@@ -484,7 +575,11 @@ fun SummaryRow(label: String, value: String, isDiscount: Boolean) {
 }
 
 @Composable
-fun PickupInfoCard() {
+fun PickupInfoCard(cartItems: List<CartItem>) {
+    val uniqueBusinesses = remember(cartItems) {
+        cartItems.map { it.businessName }.distinct()
+    }
+
     Card(
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF2A2A2A)
@@ -511,19 +606,24 @@ fun PickupInfoCard() {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Row(verticalAlignment = Alignment.Top) {
-                Icon(
-                    imageVector = Icons.Default.LocationOn,
-                    contentDescription = null,
-                    tint = Color(0xFFE57373),
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Пекарня Хлебная",
-                    color = Color.White,
-                    fontSize = 14.sp
-                )
+            uniqueBusinesses.forEach { businessName ->
+                Row(
+                    verticalAlignment = Alignment.Top,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = Color(0xFFE57373),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = businessName,
+                        color = Color.White,
+                        fontSize = 14.sp
+                    )
+                }
             }
         }
     }
@@ -583,6 +683,112 @@ fun ConfirmButton(
                 color = Color.Gray,
                 fontSize = 12.sp,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+        }
+    }
+}
+
+fun pluralizeBox(n: Int): String =
+    when {
+        n % 10 == 1 && n % 100 != 11 -> "$n коробка"
+        n % 10 in 2..4 && (n % 100 !in 12..14) -> "$n коробки"
+        else -> "$n коробок"
+    }
+
+@Composable
+fun CartHeader(
+    itemCount: Int,
+    onBackClick: () -> Unit
+) {
+    val countText = pluralizeBox(itemCount)
+    Card(
+        shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        modifier = Modifier.fillMaxWidth().height(100.dp)
+    )
+    {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF8B4545),
+                            Color(0xFF6B3535)
+                        )
+                    )
+                )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onBackClick,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            color = Color.Black.copy(alpha = 0.3f),
+                            shape = CircleShape
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Назад",
+                        tint = Color.White
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Column {
+                    Text(
+                        text = "Ваши Коробки",
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        countText,
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EmptyCartView() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.ShoppingCart,
+                contentDescription = null,
+                tint = Color.Gray,
+                modifier = Modifier.size(80.dp)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Корзина пуста",
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Добавьте коробки из главного экрана",
+                color = Color.Gray,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(top = 8.dp)
             )
         }
     }

@@ -24,8 +24,8 @@ data class OfferResponse(
     @SerializedName("image_url")
     val imageUrl: String? = null,
 
-    val businessId: Int, // Это у нас было
+    val businessId: Int,
 
-    // 👇 ВАЖНО: Вложенный объект (Бэкенд теперь его шлет благодаря joinedload)
+
     val business: Business? = null
 )

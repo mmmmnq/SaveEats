@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.lang.Exception
 
@@ -46,18 +47,32 @@ class HomeViewModel : ViewModel() {
 
     private val _allOffers = MutableStateFlow<List<Offer>>(emptyList())
     private val _filteredOffers = MutableStateFlow<List<Offer>>(emptyList())
+    private val _favoriteBusinessIds = MutableStateFlow<Set<Int>>(emptySet())
 
-
+    val favoriteBusinessIds: StateFlow<Set<Int>> = _favoriteBusinessIds.asStateFlow()
     val offers: StateFlow<List<Offer>> = _filteredOffers.asStateFlow()
 
 
-    val groupedOffers: StateFlow<Map<Int, List<Offer>>> = _filteredOffers
-        .map { list -> list.groupBy { it.business.id } }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyMap()
-        )
+    val groupedOffers: StateFlow<Map<Int, List<Offer>>> = combine(
+        _filteredOffers,
+        _favoriteBusinessIds
+    ) { offers, favorites ->
+        offers.groupBy { it.business.id }
+            .toList()
+            .sortedWith(compareBy(
+                // 1. Сначала те, у кого есть хотя бы один доступный оффер (boxesLeft > 0)
+                // false (0) пойдет выше чем true (1)
+                { pair -> pair.second.all { it.boxesLeft == 0 } },
+                // 2. Затем те, кто в избранном
+                // false (0) пойдет выше чем true (1)
+                { pair -> !favorites.contains(pair.first) }
+            ))
+            .toMap()
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyMap()
+    )
 
 
     private var _userAdress = MutableStateFlow("Загрузка адреса...")
@@ -72,6 +87,14 @@ class HomeViewModel : ViewModel() {
 
      fun loadData() {
         viewModelScope.launch {
+            // Загружаем избранные заведения
+            try {
+                val favorites = profileRepository.getFavorites()
+                _favoriteBusinessIds.value = favorites.map { it.id }.toSet()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
             // Если у нас уже есть координаты пользователя, передадим их в репозиторий
             val rawOffers = if (currentUserLat != null && currentUserLon != null) {
                 offersRepository.getRestCards(
@@ -92,6 +115,23 @@ class HomeViewModel : ViewModel() {
 
             } catch (e: Exception) {
                 _userAdress.value = "Адрес не найден"
+            }
+        }
+    }
+
+    fun toggleFavorite(businessId: Int) {
+        viewModelScope.launch {
+            try {
+                val isFavorite = profileRepository.toggleFavorite(businessId)
+                val currentFavorites = _favoriteBusinessIds.value.toMutableSet()
+                if (isFavorite) {
+                    currentFavorites.add(businessId)
+                } else {
+                    currentFavorites.remove(businessId)
+                }
+                _favoriteBusinessIds.value = currentFavorites
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }

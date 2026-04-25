@@ -12,6 +12,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -58,6 +60,7 @@ fun HomeScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     val address by viewModel.userAdress.collectAsState()
     val currentRadius by viewModel.currentRadiusFilter.collectAsState()
+    val favoriteIds by viewModel.favoriteBusinessIds.collectAsState()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -113,8 +116,11 @@ fun HomeScreen(
                 items(groupedOffers.keys.toList()) { businessId ->
                     val offersInThisRestaurant = groupedOffers[businessId] ?: emptyList()
                     if (offersInThisRestaurant.isNotEmpty()) {
+                        val isFavorite = favoriteIds.contains(businessId)
                         RestaurantGroupCard(
                             offers = offersInThisRestaurant,
+                            isFavorite = isFavorite,
+                            onFavoriteToggle = { viewModel.toggleFavorite(businessId) },
                             onOfferClick = onOfferClick
                         )
                     }
@@ -239,6 +245,8 @@ fun HomeHeader(
 @Composable
 fun RestaurantGroupCard(
     offers: List<Offer>, // Список офферов ЭТОГО ресторана
+    isFavorite: Boolean,
+    onFavoriteToggle: () -> Unit,
     onOfferClick: (Int) -> Unit
 ) {
     // Берем информацию о бизнесе из первого оффера в списке
@@ -280,6 +288,21 @@ fun RestaurantGroupCard(
                             )
                         )
                 )
+
+                // Кнопка избранного в углу
+                IconButton(
+                    onClick = onFavoriteToggle,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .background(Color.Black.copy(alpha = 0.3f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = if (isFavorite) androidx.compose.material.icons.Icons.Default.Favorite else androidx.compose.material.icons.Icons.Default.FavoriteBorder,
+                        contentDescription = "Favorite",
+                        tint = if (isFavorite) Color(0xFFE57373) else Color.White
+                    )
+                }
 
                 // Название и Лого
                 Row(
